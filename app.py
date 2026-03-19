@@ -21,33 +21,35 @@ def get_trained_model():
             # Cargamos el dataset
             X, y = fetch_openml('mnist_784', version=1, return_X_y=True, as_frame=False)
             
-            # --- TRUCO DE VELOCIDAD ---
-            # Usamos solo las primeras 10,000 imágenes para que sea rápido en Streamlit
-            X = X[:10000] / 255.0
-            y = y[:10000]
+            # Usamos 10,000 imágenes para que sea rápido en el servidor de Streamlit
+            X_train = X[:10000] / 255.0
+            y_train = y[:10000]
             
             mlp = MLPClassifier(
-                hidden_layer_sizes=(100,), # Una sola capa es más rápida
+                hidden_layer_sizes=(100,), 
                 max_iter=15, 
                 alpha=1e-4,
                 solver='adam', 
                 random_state=1
             )
             
-            mlp.fit(X, y)
+            mlp.fit(X_train, y_train)
             joblib.dump(mlp, model_file)
             return mlp
 
+# --- ESTA LÍNEA ES LA QUE FALTABA ---
+model = get_trained_model()
+
 # --- INTERFAZ DE USUARIO ---
 st.title("🔢 Clasificador de Dígitos (MLP)")
-st.write("Dibuja un número claro en el centro del recuadro:")
+st.write("Dibuja un número claro y centrado:")
 
 col1, col2 = st.columns([1, 1])
 
 with col1:
     canvas_result = st_canvas(
         fill_color="white",
-        stroke_width=18,
+        stroke_width=20, # Un poco más grueso ayuda a la IA
         stroke_color="white",
         background_color="black",
         height=280,
@@ -56,21 +58,24 @@ with col1:
         key="canvas",
     )
 
+# Solo procesar si hay dibujo
 if canvas_result.image_data is not None:
     # Procesar la imagen dibujada
     img = Image.fromarray(canvas_result.image_data.astype('uint8'))
-    img = img.convert('L') # Gris
-    img = img.resize((28, 28)) # Tamaño MNIST
+    img = img.convert('L').resize((28, 28)) 
     
-    # Convertir a vector plano (784 características) que es lo que espera sklearn
+    # Preparar el vector para Scikit-Learn
     img_array = np.array(img).reshape(1, -1).astype("float32") / 255
 
     with col2:
         if st.button("Predecir con IA"):
-            # Predicción
-            pred = model.predict(img_array)[0]
-            probs = model.predict_proba(img_array)[0]
-            
-            st.header(f"Es un: {pred}")
-            st.write(f"Confianza: {np.max(probs):.2%}")
-            st.bar_chart(probs)
+            if model is not None:
+                # Realizar predicción
+                pred = model.predict(img_array)[0]
+                probs = model.predict_proba(img_array)[0]
+                
+                st.header(f"Es un: {pred}")
+                st.write(f"Confianza: {np.max(probs):.2%}")
+                st.bar_chart(probs)
+            else:
+                st.error("El modelo no se cargó correctamente.")
