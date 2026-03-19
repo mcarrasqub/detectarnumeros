@@ -9,39 +9,30 @@ import os
 
 st.set_page_config(page_title="IA MNIST - Scikit-Learn", layout="centered")
 
-# --- LÓGICA DE ENTRENAMIENTO (MLP) ---
+# --- LÓGICA DE CARGA DEL MODELO ---
 @st.cache_resource
-def get_trained_model():
+def load_model():
+    """Carga el modelo pre-entrenado desde el archivo."""
     model_file = "mnist_mlp_model.pkl"
-    
     if os.path.exists(model_file):
         return joblib.load(model_file)
     else:
-        with st.spinner("Entrenando IA... esto puede tardar varios minutos la primera vez"):
-            # Cargamos el dataset
-            X, y = fetch_openml('mnist_784', version=1, return_X_y=True, as_frame=False)
-            
-            # Usamos 60,000 imágenes para un mejor entrenamiento
-            X_train = X[:60000] / 255.0
-            y_train = y[:60000]
-            
-            mlp = MLPClassifier(
-                hidden_layer_sizes=(100,), 
-                max_iter=50, # Aumentar las iteraciones
-                alpha=1e-4,
-                solver='adam', 
-                random_state=1
-            )
-            
-            mlp.fit(X_train, y_train)
-            joblib.dump(mlp, model_file)
-            return mlp
+        return None
 
-# --- ESTA LÍNEA ES LA QUE FALTABA ---
-model = get_trained_model()
+# --- CARGAMOS EL MODELO ---
+model = load_model()
 
 # --- INTERFAZ DE USUARIO ---
 st.title("🔢 Clasificador de Dígitos (MLP)")
+
+# Si el modelo no está cargado, mostramos un mensaje y detenemos la ejecución
+if model is None:
+    st.error("El archivo del modelo 'mnist_mlp_model.pkl' no fue encontrado.")
+    st.warning("Por favor, ejecuta el script de entrenamiento primero:")
+    st.code("python train_model.py")
+    st.stop()
+
+
 st.write("Dibuja un número claro y centrado:")
 
 col1, col2 = st.columns([1, 1])
