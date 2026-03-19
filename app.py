@@ -17,17 +17,17 @@ def get_trained_model():
     if os.path.exists(model_file):
         return joblib.load(model_file)
     else:
-        with st.spinner("Entrenando IA... esto tardará solo un momento"):
+        with st.spinner("Entrenando IA... esto puede tardar varios minutos la primera vez"):
             # Cargamos el dataset
             X, y = fetch_openml('mnist_784', version=1, return_X_y=True, as_frame=False)
             
-            # Usamos 10,000 imágenes para que sea rápido en el servidor de Streamlit
-            X_train = X[:10000] / 255.0
-            y_train = y[:10000]
+            # Usamos 60,000 imágenes para un mejor entrenamiento
+            X_train = X[:60000] / 255.0
+            y_train = y[:60000]
             
             mlp = MLPClassifier(
                 hidden_layer_sizes=(100,), 
-                max_iter=15, 
+                max_iter=50, # Aumentar las iteraciones
                 alpha=1e-4,
                 solver='adam', 
                 random_state=1
