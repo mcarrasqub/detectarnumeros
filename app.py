@@ -1,53 +1,55 @@
 import streamlit as st
-import tensorflow as tf
-from tensorflow.keras import layers, models
-from streamlit_drawable_canvas import st_canvas
 import numpy as np
+from sklearn.datasets import fetch_openml
+from sklearn.neural_network import MLPClassifier
+from streamlit_drawable_canvas import st_canvas
 from PIL import Image
+import joblib
 import os
 
-st.set_page_config(page_title="MNIST Digit Classifier", layout="centered")
+st.set_page_config(page_title="IA MNIST - Scikit-Learn", layout="centered")
 
-# --- FUNCIONES DE IA ---
+# --- LÓGICA DE ENTRENAMIENTO (MLP) ---
 @st.cache_resource
-def get_model():
-    model_path = 'modelo_mnist.h5'
+def get_trained_model():
+    model_file = "mnist_mlp_model.pkl"
     
-    # Si el modelo ya existe, lo carga. Si no, lo entrena.
-    if os.path.exists(model_path):
-        return tf.keras.models.load_model(model_path)
+    if os.path.exists(model_file):
+        return joblib.load(model_file)
     else:
-        with st.spinner("Entrenando modelo por primera vez..."):
-            mnist = tf.keras.datasets.mnist
-            (x_train, y_train), _ = mnist.load_data()
-            x_train = x_train.reshape((60000, 28, 28, 1)).astype("float32") / 255
+        with st.spinner("Cargando datos de MNIST y entrenando red neuronal..."):
+            # Cargamos el dataset MNIST original (70,000 imágenes)
+            X, y = fetch_openml('mnist_784', version=1, return_X_y=True, as_frame=False)
             
-            model = models.Sequential([
-                layers.Conv2D(32, (3, 3), activation='relu', input_shape=(28, 28, 1)),
-                layers.MaxPooling2D((2, 2)),
-                layers.Conv2D(64, (3, 3), activation='relu'),
-                layers.Flatten(),
-                layers.Dense(64, activation='relu'),
-                layers.Dense(10, activation='softmax')
-            ])
+            # Normalización (0.0 a 1.0)
+            X = X / 255.0
             
-            model.compile(optimizer='adam', loss='sparse_categorical_crossentropy', metrics=['accuracy'])
-            model.fit(x_train, y_train, epochs=5, verbose=0)
-            model.save(model_path)
-            return model
+            # MLPClassifier: Red neuronal de 2 capas ocultas (100 y 50 neuronas)
+            mlp = MLPClassifier(
+                hidden_layer_sizes=(100, 50), 
+                max_iter=10, 
+                alpha=1e-4,
+                solver='adam', 
+                verbose=False, 
+                random_state=1
+            )
+            
+            mlp.fit(X, y)
+            joblib.dump(mlp, model_file)
+            return mlp
 
-model = get_model()
+model = get_trained_model()
 
-# --- INTERFAZ ---
-st.title("🔢 Clasificador de Dígitos (CNN)")
-st.write("Dibuja un número en el recuadro negro:")
+# --- INTERFAZ DE USUARIO ---
+st.title("🔢 Clasificador de Dígitos (MLP)")
+st.write("Dibuja un número claro en el centro del recuadro:")
 
 col1, col2 = st.columns([1, 1])
 
 with col1:
     canvas_result = st_canvas(
         fill_color="white",
-        stroke_width=20,
+        stroke_width=18,
         stroke_color="white",
         background_color="black",
         height=280,
@@ -57,21 +59,20 @@ with col1:
     )
 
 if canvas_result.image_data is not None:
-    # 1. Convertir imagen del canvas a formato MNIST (28x28, escala de grises)
+    # Procesar la imagen dibujada
     img = Image.fromarray(canvas_result.image_data.astype('uint8'))
-    img = img.convert('L') # Escala de grises
-    img = img.resize((28, 28)) # Redimensionar
+    img = img.convert('L') # Gris
+    img = img.resize((28, 28)) # Tamaño MNIST
     
-    # 2. Convertir a array y normalizar
-    img_array = np.array(img).astype("float32") / 255
-    img_array = img_array.reshape(1, 28, 28, 1)
+    # Convertir a vector plano (784 características) que es lo que espera sklearn
+    img_array = np.array(img).reshape(1, -1).astype("float32") / 255
 
     with col2:
-        if st.button("Identificar Número"):
-            prediction = model.predict(img_array)
-            resultado = np.argmax(prediction)
-            confianza = np.max(prediction)
+        if st.button("Predecir con IA"):
+            # Predicción
+            pred = model.predict(img_array)[0]
+            probs = model.predict_proba(img_array)[0]
             
-            st.header(f"Es un: {resultado}")
-            st.write(f"Confianza: {confianza:.2%}")
-            st.bar_chart(prediction[0])
+            st.header(f"Es un: {pred}")
+            st.write(f"Confianza: {np.max(probs):.2%}")
+            st.bar_chart(probs)

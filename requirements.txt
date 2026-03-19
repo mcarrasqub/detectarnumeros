@@ -1,4 +1,4 @@
-tensorflow-cpu
+scikit-learn
 streamlit
 streamlit-drawable-canvas
 numpy
