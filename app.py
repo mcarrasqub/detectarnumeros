@@ -17,28 +17,26 @@ def get_trained_model():
     if os.path.exists(model_file):
         return joblib.load(model_file)
     else:
-        with st.spinner("Cargando datos de MNIST y entrenando red neuronal..."):
-            # Cargamos el dataset MNIST original (70,000 imágenes)
+        with st.spinner("Entrenando IA... esto tardará solo un momento"):
+            # Cargamos el dataset
             X, y = fetch_openml('mnist_784', version=1, return_X_y=True, as_frame=False)
             
-            # Normalización (0.0 a 1.0)
-            X = X / 255.0
+            # --- TRUCO DE VELOCIDAD ---
+            # Usamos solo las primeras 10,000 imágenes para que sea rápido en Streamlit
+            X = X[:10000] / 255.0
+            y = y[:10000]
             
-            # MLPClassifier: Red neuronal de 2 capas ocultas (100 y 50 neuronas)
             mlp = MLPClassifier(
-                hidden_layer_sizes=(100, 50), 
-                max_iter=10, 
+                hidden_layer_sizes=(100,), # Una sola capa es más rápida
+                max_iter=15, 
                 alpha=1e-4,
                 solver='adam', 
-                verbose=False, 
                 random_state=1
             )
             
             mlp.fit(X, y)
             joblib.dump(mlp, model_file)
             return mlp
-
-model = get_trained_model()
 
 # --- INTERFAZ DE USUARIO ---
 st.title("🔢 Clasificador de Dígitos (MLP)")
